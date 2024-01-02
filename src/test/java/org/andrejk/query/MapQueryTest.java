@@ -1,6 +1,5 @@
 package org.andrejk.query;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -17,17 +16,14 @@ class MapQueryTest {
 
     @BeforeAll
     public static void setup() throws IOException {
-        CUSTOMERS_DATA = TestUtils.readJsonFile("customers.json", new TypeReference<>() {
-        });
-        CUSTOMERS_MISSING_DATA = TestUtils.readJsonFile("customers_missing_data.json", new TypeReference<>() {
-        });
-        CITIES_DATA = TestUtils.readJsonFile("cities.json", new TypeReference<>() {
-        });
+        CUSTOMERS_DATA = TestUtils.readJsonFileToListOfMaps("customers.json");
+        CUSTOMERS_MISSING_DATA = TestUtils.readJsonFileToListOfMaps("customers_missing_data.json");
+        CITIES_DATA = TestUtils.readJsonFileToListOfMaps("cities.json");
     }
 
     @Test
-    void testSelect() {
-        List<String> select = List.of("ids", "customers.name", "ageAvg", "cityNames");
+    void showCaseTest() {
+        List<String> select = List.of("customers.name", "ageAvg", "cityNames");
 
         ObjectQuery.WhereGroup<String> where = new ObjectQuery.WhereGroup<>(
                 List.of(new ObjectQuery.WhereGroup<>(
@@ -57,14 +53,14 @@ class MapQueryTest {
         int limitSize = 10;
 
         List<Map<String, Object>> queryResult = new MapQuery<>(MapQuery.STRING_KEY_ALIASING_FUNCTION)
+                .distinct()
+                .select(select)
                 .from(CUSTOMERS_DATA, "customers")
                 .join(CITIES_DATA, "cities", "customers.city", "cities.cityId")
-                .select(select)
                 .where(where)
-                .sort(sortMap)
                 .groupBy(groupByFields, groupBy)
+                .sort(sortMap)
                 .limit(limitFrom, limitSize)
-                .distinct()
                 .execute();
 
         Assertions.assertNotNull(queryResult);
