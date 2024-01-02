@@ -1,11 +1,9 @@
-package org.andrejk.query.map;
-
-import org.andrejk.query.AbstractObjectQuery;
+package org.andrejk.query;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class ValueMapQuery<K, V> extends AbstractObjectQuery<Map<K, V>, K> {
+public class MapQuery<K, V> extends AbstractObjectQuery<Map<K, V>, K> {
 
     @Override
     protected int compareRecords(Map<K, V> r, Map<K, V> r2, K key, SortType sortType) {
@@ -22,6 +20,10 @@ public class ValueMapQuery<K, V> extends AbstractObjectQuery<Map<K, V>, K> {
 
         if (!Comparable.class.isAssignableFrom(v.getClass())) {
             throw new IllegalArgumentException("Values of class " + v.getClass() + " are not comparable!");
+        }
+
+        if (!Comparable.class.isAssignableFrom(v2.getClass())) {
+            throw new IllegalArgumentException("Values of class " + v2.getClass() + " are not comparable!");
         }
 
         return sortType == SortType.ASC ? ((Comparable) v).compareTo(v2) : ((Comparable) v2).compareTo(v);

@@ -1,7 +1,6 @@
-package org.andrejk.query.map;
+package org.andrejk.query;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.andrejk.query.ObjectQuery;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
