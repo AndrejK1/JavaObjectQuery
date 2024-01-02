@@ -1,7 +1,6 @@
 package org.andrejk.query.map;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.andrejk.query.ObjectQuery;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -14,11 +13,13 @@ import java.util.stream.Collectors;
 
 class MapQueryTest {
     private static List<Map<String, Object>> CUSTOMERS_DATA;
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static List<Map<String, Object>> CITIES_DATA;
 
     @BeforeAll
     public static void setup() throws IOException {
-        CUSTOMERS_DATA = OBJECT_MAPPER.readValue(MapQueryTest.class.getClassLoader().getResourceAsStream("customers.json"), new TypeReference<>() {
+        CUSTOMERS_DATA = TestUtils.readJsonFile("customers.json", new TypeReference<>() {
+        });
+        CITIES_DATA = TestUtils.readJsonFile("cities.json", new TypeReference<>() {
         });
     }
 
@@ -54,6 +55,7 @@ class MapQueryTest {
 
         List<Map<String, Object>> queryResult = new MapQuery<String>()
                 .from(CUSTOMERS_DATA)
+                .join(CITIES_DATA, "city", "id")
                 .select(select)
                 .where(where)
                 .sort(sortMap)

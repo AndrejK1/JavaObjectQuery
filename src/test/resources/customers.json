@@ -1,0 +1,44 @@
+[
+  {
+    "id": "1",
+    "name": "Andrii",
+    "age": 24,
+    "city": "2"
+  },
+  {
+    "id": "2",
+    "name": "Andrii",
+    "age": 21,
+    "city": "2"
+  },
+  {
+    "id": "3",
+    "name": "Dmytro",
+    "age": 23,
+    "city": "1"
+  },
+  {
+    "id": "4",
+    "name": "Vova",
+    "age": 24,
+    "city": "1"
+  },
+  {
+    "id": "5",
+    "name": "Anton",
+    "age": 22,
+    "city": "3"
+  },
+  {
+    "id": "6",
+    "name": "Vitaliy",
+    "age": 30,
+    "city": "3"
+  },
+  {
+    "id": "7",
+    "name": "Illya",
+    "age": 20,
+    "city": "4"
+  }
+]

@@ -198,7 +198,7 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     }
 
     protected List<T> joinSource(List<T> source, JoinedSource<T, F> joinedSource) {
-
+        // TODO COMPLETE ALL JOIN TYPES
         switch (joinedSource.getJoinType()) {
             case INNER:
                 return innerJoin(source, joinedSource);
@@ -221,7 +221,7 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
             Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
 
             for (T joinedSourceRecord : joinedSource.getSource()) {
-                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getSourceField());
+                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
 
                 if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
                     joinedResult.add(join(sourceRecord, joinedSourceRecord));
