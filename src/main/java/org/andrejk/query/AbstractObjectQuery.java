@@ -13,13 +13,14 @@ import java.util.stream.Stream;
 
 public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     protected Collection<F> selectedFields;
-    protected List<T> source;
+    protected Source<T> source;
     protected WhereGroup<F> whereClause;
     protected Integer limitFrom;
     protected Integer limitSize;
     protected List<Sort<F>> sorts;
     protected List<JoinedSource<T, F>> joinedSources = new ArrayList<>();
     protected List<F> groupByFields;
+    protected boolean distinct = false;
     protected List<GroupByAggregation<T, F>> groupByAggregations;
 
     @Override
@@ -29,14 +30,14 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     }
 
     @Override
-    public ObjectQuery<T, F> from(Collection<T> source) {
-        this.source = new ArrayList<>(source);
+    public ObjectQuery<T, F> from(Collection<T> source, Object sourceAlias) {
+        this.source = new Source<>(List.copyOf(source), sourceAlias);
         return this;
     }
 
     @Override
-    public ObjectQuery<T, F> join(Collection<T> joinedSource, F sourceField, F joinedSourceField, JoinType joinType) {
-        joinedSources.add(new JoinedSource<>(new ArrayList<>(joinedSource), sourceField, joinedSourceField, joinType));
+    public ObjectQuery<T, F> join(Collection<T> joinedSource, Object joinedSourceAlias, F sourceField, F joinedSourceField, JoinType joinType) {
+        joinedSources.add(new JoinedSource<>(List.copyOf(joinedSource), joinedSourceAlias, sourceField, joinedSourceField, joinType));
         return this;
     }
 
@@ -67,25 +68,41 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     }
 
     @Override
+    public ObjectQuery<T, F> distinct() {
+        distinct = true;
+        return this;
+    }
+
+    @Override
     public List<T> execute() {
         if (source == null) {
             throw new IllegalArgumentException("Source cannot be null");
         }
 
+        List<T> intermediateResult = source.getJoinedSourceAlias() == null ?
+                new ArrayList<>(source.getSource()) :
+                aliasSource(source.getSource(), source.getJoinedSourceAlias());
+
         if (!joinedSources.isEmpty()) {
             for (JoinedSource<T, F> joinedSource : joinedSources) {
-                source = joinSource(source, joinedSource);
+                intermediateResult = joinSource(
+                        intermediateResult,
+                        joinedSource.getSourceField(),
+                        aliasSource(joinedSource.getJoinedSource(), joinedSource.getJoinedSourceAlias()),
+                        joinedSource.getJoinedSourceField(),
+                        joinedSource.joinType
+                );
             }
         }
 
         if (whereClause != null) {
-            source = source.stream()
+            intermediateResult = intermediateResult.stream()
                     .filter(record -> testRecord(record, whereClause))
                     .collect(Collectors.toList());
         }
 
         if (groupByFields != null && !groupByFields.isEmpty()) {
-            source = source.stream()
+            intermediateResult = intermediateResult.stream()
                     .collect(Collectors.groupingBy(record -> constructGroupingKey(record, groupByFields)))
                     .entrySet()
                     .stream()
@@ -94,21 +111,27 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
         }
 
         if (sorts != null) {
-            source.sort(constructComparator(sorts));
+            intermediateResult.sort(constructComparator(sorts));
         }
 
         if (selectedFields != null && !selectedFields.isEmpty()) {
-            source = selectFields(source, selectedFields);
+            intermediateResult = selectFields(intermediateResult, selectedFields);
+        }
+
+        if (distinct) {
+            intermediateResult = intermediateResult.stream()
+                    .distinct()
+                    .collect(Collectors.toList());
         }
 
         if (limitSize != null) {
-            return source.stream()
+            return intermediateResult.stream()
                     .skip(limitFrom)
                     .limit(limitSize)
                     .collect(Collectors.toList());
         }
 
-        return source;
+        return intermediateResult;
     }
 
     protected List<Object> constructGroupingKey(T record, List<F> groupByFields) {
@@ -130,10 +153,10 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
         };
     }
 
-    protected boolean testRecord(T source, WhereGroup<F> whereClause) {
+    protected boolean testRecord(T record, WhereGroup<F> whereClause) {
         Stream<Boolean> conditions = Stream.concat(
-                whereClause.getGroups().stream().map(group -> testRecord(source, group)),
-                whereClause.getConditions().stream().map(condition -> testCondition(source, condition))
+                whereClause.getGroups().stream().map(group -> testRecord(record, group)),
+                whereClause.getConditions().stream().map(condition -> testCondition(record, condition))
         );
 
         return whereClause.getGroupCondition() == WhereGroup.GroupConditionType.AND ?
@@ -141,8 +164,8 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
                 conditions.anyMatch(b -> b);
     }
 
-    protected Boolean testCondition(T source, WhereGroup.WhereCondition<F> condition) {
-        Object sourceValue = extractValue(source, condition.getField());
+    protected Boolean testCondition(T record, WhereGroup.WhereCondition<F> condition) {
+        Object sourceValue = extractValue(record, condition.getField());
 
         switch (condition.getCondition()) {
             case EQUALS:
@@ -160,13 +183,13 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
 
                 return sourceValue.toString().contains(condition.getValue().toString());
             case LOWER:
-                return compareNumbers(condition, sourceValue) < 0;
+                return sourceValue != null && compareNumbers(condition, sourceValue) < 0;
             case LOWER_EQUALS:
-                return compareNumbers(condition, sourceValue) <= 0;
+                return sourceValue != null && compareNumbers(condition, sourceValue) <= 0;
             case BIGGER:
-                return compareNumbers(condition, sourceValue) > 0;
+                return sourceValue != null && compareNumbers(condition, sourceValue) > 0;
             case BIGGER_EQUALS:
-                return compareNumbers(condition, sourceValue) >= 0;
+                return sourceValue != null && compareNumbers(condition, sourceValue) >= 0;
             case IN:
                 if (!(condition.getValue() instanceof Collection)) {
                     throw new IllegalArgumentException("CONTAINS condition value must be Collection type");
@@ -194,37 +217,37 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
         return Double.compare(((Number) sourceValue).doubleValue(), ((Number) condition.getValue()).doubleValue());
     }
 
-    protected List<T> joinSource(List<T> source, JoinedSource<T, F> joinedSource) {
-        switch (joinedSource.getJoinType()) {
+    protected List<T> joinSource(List<T> baseSource, F baseSourceField, List<T> joinedSource, F joinedSourceField, JoinType joinType) {
+        switch (joinType) {
             case INNER:
-                return innerJoin(source, joinedSource);
-            case LEFT:
-                return leftJoin(source, joinedSource);
-            case RIGHT:
-                return leftJoin(joinedSource.getSource(), new JoinedSource<>(source, joinedSource.getJoinedSourceField(), joinedSource.getSourceField(), JoinType.LEFT));
+                return innerJoin(baseSource, baseSourceField, joinedSource, joinedSourceField);
             case CROSS:
-                return crossJoin(source, joinedSource);
+                return crossJoin(baseSource, joinedSource);
+            case LEFT:
+                return leftJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, true);
+            case RIGHT:
+                return leftJoin(joinedSource, joinedSourceField, baseSource, baseSourceField, true);
             case FULL:
-                return fullJoin(source, joinedSource);
+                return fullJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, true);
             case LEFT_EXCLUSIVE:
-                return leftExclusiveJoin(source, joinedSource);
+                return leftJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, false);
             case RIGHT_EXCLUSIVE:
-                return leftExclusiveJoin(joinedSource.getSource(), new JoinedSource<>(source, joinedSource.getJoinedSourceField(), joinedSource.getSourceField(), JoinType.LEFT_EXCLUSIVE));
+                return leftJoin(joinedSource, joinedSourceField, baseSource, baseSourceField, false);
             case FULL_EXCLUSIVE:
-                return fullExclusiveJoin(source, joinedSource);
+                return fullJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, false);
             default:
-                throw new IllegalArgumentException(joinedSource.getJoinType() + " join type is not supported");
+                throw new IllegalArgumentException(joinType + " join type is not supported");
         }
     }
 
-    protected List<T> innerJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+    protected List<T> innerJoin(List<T> baseSource, F baseSourceField, List<T> joinedSource, F joinedSourceField) {
         List<T> joinedResult = new ArrayList<>();
 
-        for (T sourceRecord : source) {
-            Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
+        for (T sourceRecord : baseSource) {
+            Object sourceValue = extractValue(sourceRecord, baseSourceField);
 
-            for (T joinedSourceRecord : joinedSource.getSource()) {
-                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
+            for (T joinedSourceRecord : joinedSource) {
+                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSourceField);
 
                 if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
                     joinedResult.add(join(sourceRecord, joinedSourceRecord));
@@ -235,11 +258,11 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
         return joinedResult;
     }
 
-    protected List<T> crossJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+    protected List<T> crossJoin(List<T> baseSource, List<T> joinedSource) {
         List<T> joinedResult = new ArrayList<>();
 
-        for (T sourceRecord : source) {
-            for (T joinedSourceRecord : joinedSource.getSource()) {
+        for (T sourceRecord : baseSource) {
+            for (T joinedSourceRecord : joinedSource) {
                 joinedResult.add(join(sourceRecord, joinedSourceRecord));
             }
         }
@@ -247,19 +270,21 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
         return joinedResult;
     }
 
-    protected List<T> leftJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+    protected List<T> leftJoin(List<T> baseSource, F baseSourceField, List<T> joinedSource, F joinedSourceField, boolean includeMatching) {
         List<T> joinedResult = new ArrayList<>();
 
-        for (T sourceRecord : source) {
+        for (T sourceRecord : baseSource) {
             boolean recordJoined = false;
 
-            Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
+            Object sourceValue = extractValue(sourceRecord, baseSourceField);
 
-            for (T joinedSourceRecord : joinedSource.getSource()) {
-                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
+            for (T joinedSourceRecord : joinedSource) {
+                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSourceField);
 
                 if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
-                    joinedResult.add(join(sourceRecord, joinedSourceRecord));
+                    if (includeMatching) {
+                        joinedResult.add(join(sourceRecord, joinedSourceRecord));
+                    }
                     recordJoined = true;
                 }
             }
@@ -272,82 +297,25 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
         return joinedResult;
     }
 
-    private List<T> fullJoin(List<T> source, JoinedSource<T, F> joinedSource) {
-        List<T> joinedResult = new ArrayList<>();
-        List<T> joinedSourceRecords = joinedSource.getSource();
-
-        boolean[] joinedSourceRecordUsed = new boolean[joinedSourceRecords.size()];
-
-        for (T sourceRecord : source) {
-            boolean recordJoined = false;
-
-            Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
-
-            for (int i = 0; i < joinedSourceRecords.size(); i++) {
-                T joinedSourceRecord = joinedSourceRecords.get(i);
-                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
-
-                if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
-                    joinedResult.add(join(sourceRecord, joinedSourceRecord));
-                    recordJoined = true;
-                    joinedSourceRecordUsed[i] = true;
-                }
-            }
-
-            if (!recordJoined) {
-                joinedResult.add(join(sourceRecord, null));
-            }
-        }
-
-        for (int i = 0; i < joinedSourceRecordUsed.length; i++) {
-            if (!joinedSourceRecordUsed[i]) {
-                joinedResult.add(join(joinedSourceRecords.get(i), null));
-            }
-        }
-
-        return joinedResult;
-    }
-
-    private List<T> leftExclusiveJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+    private List<T> fullJoin(List<T> baseSource, F baseSourceField, List<T> joinedSource, F joinedSourceField, boolean includeMatching) {
         List<T> joinedResult = new ArrayList<>();
 
-        for (T sourceRecord : source) {
+        boolean[] joinedSourceRecordUsed = new boolean[joinedSource.size()];
+
+        for (T sourceRecord : baseSource) {
             boolean recordJoined = false;
 
-            Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
+            Object sourceValue = extractValue(sourceRecord, baseSourceField);
 
-            for (T joinedSourceRecord : joinedSource.getSource()) {
-                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
-
-                if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
-                    recordJoined = true;
-                }
-            }
-
-            if (!recordJoined) {
-                joinedResult.add(join(sourceRecord, null));
-            }
-        }
-
-        return joinedResult;
-    }
-
-    private List<T> fullExclusiveJoin(List<T> source, JoinedSource<T, F> joinedSource) {
-        List<T> joinedResult = new ArrayList<>();
-        List<T> joinedSourceRecords = joinedSource.getSource();
-
-        boolean[] joinedSourceRecordUsed = new boolean[joinedSourceRecords.size()];
-
-        for (T sourceRecord : source) {
-            boolean recordJoined = false;
-
-            Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
-
-            for (int i = 0; i < joinedSourceRecords.size(); i++) {
-                T joinedSourceRecord = joinedSourceRecords.get(i);
-                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
+            for (int i = 0; i < joinedSource.size(); i++) {
+                T joinedSourceRecord = joinedSource.get(i);
+                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSourceField);
 
                 if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
+                    if (includeMatching) {
+                        joinedResult.add(join(sourceRecord, joinedSourceRecord));
+                    }
+
                     recordJoined = true;
                     joinedSourceRecordUsed[i] = true;
                 }
@@ -360,18 +328,23 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
 
         for (int i = 0; i < joinedSourceRecordUsed.length; i++) {
             if (!joinedSourceRecordUsed[i]) {
-                joinedResult.add(join(joinedSourceRecords.get(i), null));
+                joinedResult.add(join(joinedSource.get(i), null));
             }
         }
 
         return joinedResult;
     }
+
+    protected abstract List<T> aliasSource(List<T> source, Object joinedSourceAlias);
 
     abstract protected int compareRecords(T r, T r2, F key, SortType sortType);
 
     abstract protected List<T> selectFields(List<T> source, Collection<F> selectedFields);
 
-    abstract protected T constructGroupedRecord(List<F> groupByFields, List<Object> groupByFieldValues, List<T> groupedRecords, List<GroupByAggregation<T, F>> groupByAggregations);
+    abstract protected T constructGroupedRecord(List<F> groupByFields,
+                                                List<Object> groupByFieldValues,
+                                                List<T> groupedRecords,
+                                                List<GroupByAggregation<T, F>> groupByAggregations);
 
     abstract protected T join(T sourceRecord, T joinedSourceRecord);
 
@@ -380,8 +353,17 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     @Getter
     @Builder
     @AllArgsConstructor
-    protected static class JoinedSource<T, F> {
+    protected static class Source<T> {
         private List<T> source;
+        private Object joinedSourceAlias;
+    }
+
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    protected static class JoinedSource<T, F> {
+        private List<T> joinedSource;
+        private Object joinedSourceAlias;
         private F sourceField;
         private F joinedSourceField;
         private JoinType joinType;

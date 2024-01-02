@@ -13,12 +13,16 @@ public interface ObjectQuery<T, F> {
 
     ObjectQuery<T, F> select(Collection<F> fields);
 
-    ObjectQuery<T, F> from(Collection<T> source);
+    ObjectQuery<T, F> from(Collection<T> source, Object sourceAlias);
 
-    ObjectQuery<T, F> join(Collection<T> joinedSource, F sourceField, F joinedSourceField, JoinType joinType);
+    default ObjectQuery<T, F> from(Collection<T> source) {
+        return from(source, null);
+    }
 
-    default ObjectQuery<T, F> join(Collection<T> joinedSource, F sourceField, F joinedSourceField) {
-        return join(joinedSource, sourceField, joinedSourceField, JoinType.INNER);
+    ObjectQuery<T, F> join(Collection<T> joinedSource, Object joinedSourceAlias, F sourceField, F joinedSourceField, JoinType joinType);
+
+    default ObjectQuery<T, F> join(Collection<T> joinedSource, Object joinedSourceAlias, F sourceField, F joinedSourceField) {
+        return join(joinedSource, joinedSourceAlias, sourceField, joinedSourceField, JoinType.INNER);
     }
 
     ObjectQuery<T, F> where(WhereGroup<F> whereClause);
@@ -40,6 +44,8 @@ public interface ObjectQuery<T, F> {
     }
 
     ObjectQuery<T, F> sort(List<Sort<F>> sorts);
+
+    ObjectQuery<T, F> distinct();
 
     List<T> execute();
 

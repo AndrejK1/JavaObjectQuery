@@ -1,9 +1,33 @@
 package org.andrejk.query;
 
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 public class MapQuery<K, V> extends AbstractObjectQuery<Map<K, V>, K> {
+    public static final BiFunction<Object, String, String> STRING_KEY_ALIASING_FUNCTION =
+            (alias, key) -> alias == null || alias.toString().isBlank() ? key : String.join(".", alias.toString(), key);
+
+    private final BiFunction<Object, K, K> keyAliasingFunction;
+
+    public MapQuery() {
+        this.keyAliasingFunction = (alias, key) -> key;
+    }
+
+    public MapQuery(BiFunction<Object, K, K> keyAliasingFunction) {
+        this.keyAliasingFunction = keyAliasingFunction;
+    }
+
+    @Override
+    protected List<Map<K, V>> aliasSource(List<Map<K, V>> source, Object joinedSourceAlias) {
+        return source.stream()
+                .map(map -> {
+                    HashMap<K, V> result = new HashMap<>();
+                    map.forEach((key, value) -> result.put(keyAliasingFunction.apply(joinedSourceAlias, key), value));
+                    return result;
+                })
+                .collect(Collectors.toList());
+    }
 
     @Override
     protected int compareRecords(Map<K, V> r, Map<K, V> r2, K key, SortType sortType) {

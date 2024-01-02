@@ -27,43 +27,44 @@ class MapQueryTest {
 
     @Test
     void testSelect() {
-        List<String> select = List.of("ids", "name", "ageAvg", "cityNames");
+        List<String> select = List.of("ids", "customers.name", "ageAvg", "cityNames");
 
         ObjectQuery.WhereGroup<String> where = new ObjectQuery.WhereGroup<>(
                 List.of(new ObjectQuery.WhereGroup<>(
                         List.of(),
                         List.of(
-                                new ObjectQuery.WhereGroup.WhereCondition<>("name", ObjectQuery.WhereGroup.WhereCondition.ConditionType.CONTAINS, "And"),
-                                new ObjectQuery.WhereGroup.WhereCondition<>("name", ObjectQuery.WhereGroup.WhereCondition.ConditionType.CONTAINS, "ov"),
-                                new ObjectQuery.WhereGroup.WhereCondition<>("name", ObjectQuery.WhereGroup.WhereCondition.ConditionType.CONTAINS, "Vi")
+                                new ObjectQuery.WhereGroup.WhereCondition<>("customers.name", ObjectQuery.WhereGroup.WhereCondition.ConditionType.CONTAINS, "And"),
+                                new ObjectQuery.WhereGroup.WhereCondition<>("customers.name", ObjectQuery.WhereGroup.WhereCondition.ConditionType.CONTAINS, "ov"),
+                                new ObjectQuery.WhereGroup.WhereCondition<>("customers.name", ObjectQuery.WhereGroup.WhereCondition.ConditionType.CONTAINS, "Vi")
                         ),
                         ObjectQuery.WhereGroup.GroupConditionType.OR
                 )),
-                List.of(new ObjectQuery.WhereGroup.WhereCondition<>("age", ObjectQuery.WhereGroup.WhereCondition.ConditionType.LOWER, 25)),
+                List.of(new ObjectQuery.WhereGroup.WhereCondition<>("customers.age", ObjectQuery.WhereGroup.WhereCondition.ConditionType.LOWER_EQUALS, 24)),
                 ObjectQuery.WhereGroup.GroupConditionType.AND
         );
 
-        List<ObjectQuery.Sort<String>> sortMap = List.of(new ObjectQuery.Sort<>("age", ObjectQuery.SortType.DESC),
-                new ObjectQuery.Sort<>("name", ObjectQuery.SortType.DESC));
+        List<ObjectQuery.Sort<String>> sortMap = List.of(new ObjectQuery.Sort<>("customers.age", ObjectQuery.SortType.DESC),
+                new ObjectQuery.Sort<>("customers.name", ObjectQuery.SortType.DESC));
 
-        List<String> groupByFields = List.of("name", "age");
+        List<String> groupByFields = List.of("customers.name", "customers.age");
         List<ObjectQuery.GroupByAggregation<Map<String, Object>, String>> groupBy = List.of(
-                new ObjectQuery.GroupByAggregation<>("ids", records -> records.stream().map(map -> map.get("id")).map(String::valueOf).collect(Collectors.joining(",", "[", "]"))),
-                new ObjectQuery.GroupByAggregation<>("cityNames", records -> records.stream().map(map -> map.get("cityName")).map(String::valueOf).collect(Collectors.joining(",", "[", "]"))),
-                new ObjectQuery.GroupByAggregation<>("ageAvg", records -> records.stream().map(map -> map.getOrDefault("age", 0).toString()).mapToInt(Integer::valueOf).average().orElse(0D))
+                new ObjectQuery.GroupByAggregation<>("ids", records -> records.stream().map(map -> map.get("customers.id")).map(String::valueOf).collect(Collectors.joining(",", "[", "]"))),
+                new ObjectQuery.GroupByAggregation<>("cityNames", records -> records.stream().map(map -> map.get("cities.cityName")).map(String::valueOf).collect(Collectors.joining(",", "[", "]"))),
+                new ObjectQuery.GroupByAggregation<>("ageAvg", records -> records.stream().map(map -> map.getOrDefault("customers.age", 0).toString()).mapToInt(Integer::valueOf).average().orElse(0D))
         );
 
         int limitFrom = 0;
         int limitSize = 10;
 
-        List<Map<String, Object>> queryResult = new MapQuery<String, Object>()
-                .from(CUSTOMERS_DATA)
-                .join(CITIES_DATA, "city", "cityId")
+        List<Map<String, Object>> queryResult = new MapQuery<>(MapQuery.STRING_KEY_ALIASING_FUNCTION)
+                .from(CUSTOMERS_DATA, "customers")
+                .join(CITIES_DATA, "cities", "customers.city", "cities.cityId")
                 .select(select)
                 .where(where)
                 .sort(sortMap)
                 .groupBy(groupByFields, groupBy)
                 .limit(limitFrom, limitSize)
+                .distinct()
                 .execute();
 
         Assertions.assertNotNull(queryResult);
