@@ -24,7 +24,7 @@ class MapQueryTest {
 
     @Test
     void testSelect() {
-        List<String> select = List.of("ids", "name", "ageAvg");
+        List<String> select = List.of("ids", "name", "ageAvg", "cityNames");
 
         ObjectQuery.WhereGroup<String> where = new ObjectQuery.WhereGroup<>(
                 List.of(new ObjectQuery.WhereGroup<>(
@@ -46,6 +46,7 @@ class MapQueryTest {
         List<String> groupByFields = List.of("name", "age");
         List<ObjectQuery.GroupByAggregation<Map<String, Object>, String>> groupBy = List.of(
                 new ObjectQuery.GroupByAggregation<>("ids", records -> records.stream().map(map -> map.get("id")).map(String::valueOf).collect(Collectors.joining(",", "[", "]"))),
+                new ObjectQuery.GroupByAggregation<>("cityNames", records -> records.stream().map(map -> map.get("cityName")).map(String::valueOf).collect(Collectors.joining(",", "[", "]"))),
                 new ObjectQuery.GroupByAggregation<>("ageAvg", records -> records.stream().map(map -> map.getOrDefault("age", 0).toString()).mapToInt(Integer::valueOf).average().orElse(0D))
         );
 
@@ -54,7 +55,7 @@ class MapQueryTest {
 
         List<Map<String, Object>> queryResult = new MapQuery<String, Object>()
                 .from(CUSTOMERS_DATA)
-                .join(CITIES_DATA, "city", "id")
+                .join(CITIES_DATA, "city", "cityId")
                 .select(select)
                 .where(where)
                 .sort(sortMap)
