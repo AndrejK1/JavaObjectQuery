@@ -4,7 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -192,17 +195,23 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     }
 
     protected List<T> joinSource(List<T> source, JoinedSource<T, F> joinedSource) {
-        // TODO COMPLETE ALL JOIN TYPES
         switch (joinedSource.getJoinType()) {
             case INNER:
                 return innerJoin(source, joinedSource);
             case LEFT:
+                return leftJoin(source, joinedSource);
             case RIGHT:
+                return leftJoin(joinedSource.getSource(), new JoinedSource<>(source, joinedSource.getJoinedSourceField(), joinedSource.getSourceField(), JoinType.LEFT));
             case CROSS:
+                return crossJoin(source, joinedSource);
             case FULL:
+                return fullJoin(source, joinedSource);
             case LEFT_OUTER:
+                return leftOuterJoin(source, joinedSource);
             case RIGHT_OUTER:
+                return leftOuterJoin(joinedSource.getSource(), new JoinedSource<>(source, joinedSource.getJoinedSourceField(), joinedSource.getSourceField(), JoinType.LEFT_OUTER));
             case FULL_OUTER:
+                return fullOuterJoin(source, joinedSource);
             default:
                 throw new IllegalArgumentException(joinedSource.getJoinType() + " join type is not supported");
         }
@@ -224,6 +233,55 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
         }
 
         return joinedResult;
+    }
+
+    protected List<T> crossJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+        List<T> joinedResult = new ArrayList<>();
+
+        for (T sourceRecord : source) {
+            for (T joinedSourceRecord : joinedSource.getSource()) {
+                joinedResult.add(join(sourceRecord, joinedSourceRecord));
+            }
+        }
+
+        return joinedResult;
+    }
+
+    protected List<T> leftJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+        List<T> joinedResult = new ArrayList<>();
+
+        for (T sourceRecord : source) {
+            boolean recordJoined = false;
+
+            Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
+
+            for (T joinedSourceRecord : joinedSource.getSource()) {
+                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
+
+                if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
+                    joinedResult.add(join(sourceRecord, joinedSourceRecord));
+                    recordJoined = true;
+                }
+            }
+
+            if (!recordJoined) {
+                joinedResult.add(join(sourceRecord, null));
+            }
+        }
+
+        return joinedResult;
+    }
+
+    private List<T> fullJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+        throw new IllegalArgumentException(joinedSource.getJoinType() + " join type is not supported");
+    }
+
+    private List<T> leftOuterJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+        throw new IllegalArgumentException(joinedSource.getJoinType() + " join type is not supported");
+    }
+
+    private List<T> fullOuterJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+        throw new IllegalArgumentException(joinedSource.getJoinType() + " join type is not supported");
     }
 
     abstract protected int compareRecords(T r, T r2, F key, SortType sortType);

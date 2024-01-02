@@ -1,0 +1,26 @@
+[
+  {
+    "id": "1",
+    "name": "Andrii",
+    "age": 24,
+    "city": "1"
+  },
+  {
+    "id": "2",
+    "name": null,
+    "age": 23,
+    "city": "2"
+  },
+  {
+    "id": "3",
+    "name": "Dmytro",
+    "age": 23,
+    "city": null
+  },
+  {
+    "id": "4",
+    "name": "Vova",
+    "age": null,
+    "city": "1001"
+  }
+]

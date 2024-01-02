@@ -11,12 +11,15 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 class MapQueryTest {
+    private static List<Map<String, Object>> CUSTOMERS_MISSING_DATA;
     private static List<Map<String, Object>> CUSTOMERS_DATA;
     private static List<Map<String, Object>> CITIES_DATA;
 
     @BeforeAll
     public static void setup() throws IOException {
         CUSTOMERS_DATA = TestUtils.readJsonFile("customers.json", new TypeReference<>() {
+        });
+        CUSTOMERS_MISSING_DATA = TestUtils.readJsonFile("customers_missing_data.json", new TypeReference<>() {
         });
         CITIES_DATA = TestUtils.readJsonFile("cities.json", new TypeReference<>() {
         });
