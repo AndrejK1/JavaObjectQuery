@@ -44,7 +44,7 @@ public interface ObjectQuery<T, F> {
     List<T> execute();
 
     enum JoinType {
-        INNER, CROSS, LEFT, RIGHT, FULL, LEFT_OUTER, RIGHT_OUTER, FULL_OUTER
+        INNER, CROSS, LEFT, RIGHT, FULL, LEFT_EXCLUSIVE, RIGHT_EXCLUSIVE, FULL_EXCLUSIVE
     }
 
     enum SortType {

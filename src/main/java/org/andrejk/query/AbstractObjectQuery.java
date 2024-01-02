@@ -206,12 +206,12 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
                 return crossJoin(source, joinedSource);
             case FULL:
                 return fullJoin(source, joinedSource);
-            case LEFT_OUTER:
-                return leftOuterJoin(source, joinedSource);
-            case RIGHT_OUTER:
-                return leftOuterJoin(joinedSource.getSource(), new JoinedSource<>(source, joinedSource.getJoinedSourceField(), joinedSource.getSourceField(), JoinType.LEFT_OUTER));
-            case FULL_OUTER:
-                return fullOuterJoin(source, joinedSource);
+            case LEFT_EXCLUSIVE:
+                return leftExclusiveJoin(source, joinedSource);
+            case RIGHT_EXCLUSIVE:
+                return leftExclusiveJoin(joinedSource.getSource(), new JoinedSource<>(source, joinedSource.getJoinedSourceField(), joinedSource.getSourceField(), JoinType.LEFT_EXCLUSIVE));
+            case FULL_EXCLUSIVE:
+                return fullExclusiveJoin(source, joinedSource);
             default:
                 throw new IllegalArgumentException(joinedSource.getJoinType() + " join type is not supported");
         }
@@ -273,15 +273,98 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     }
 
     private List<T> fullJoin(List<T> source, JoinedSource<T, F> joinedSource) {
-        throw new IllegalArgumentException(joinedSource.getJoinType() + " join type is not supported");
+        List<T> joinedResult = new ArrayList<>();
+        List<T> joinedSourceRecords = joinedSource.getSource();
+
+        boolean[] joinedSourceRecordUsed = new boolean[joinedSourceRecords.size()];
+
+        for (T sourceRecord : source) {
+            boolean recordJoined = false;
+
+            Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
+
+            for (int i = 0; i < joinedSourceRecords.size(); i++) {
+                T joinedSourceRecord = joinedSourceRecords.get(i);
+                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
+
+                if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
+                    joinedResult.add(join(sourceRecord, joinedSourceRecord));
+                    recordJoined = true;
+                    joinedSourceRecordUsed[i] = true;
+                }
+            }
+
+            if (!recordJoined) {
+                joinedResult.add(join(sourceRecord, null));
+            }
+        }
+
+        for (int i = 0; i < joinedSourceRecordUsed.length; i++) {
+            if (!joinedSourceRecordUsed[i]) {
+                joinedResult.add(join(joinedSourceRecords.get(i), null));
+            }
+        }
+
+        return joinedResult;
     }
 
-    private List<T> leftOuterJoin(List<T> source, JoinedSource<T, F> joinedSource) {
-        throw new IllegalArgumentException(joinedSource.getJoinType() + " join type is not supported");
+    private List<T> leftExclusiveJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+        List<T> joinedResult = new ArrayList<>();
+
+        for (T sourceRecord : source) {
+            boolean recordJoined = false;
+
+            Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
+
+            for (T joinedSourceRecord : joinedSource.getSource()) {
+                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
+
+                if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
+                    recordJoined = true;
+                }
+            }
+
+            if (!recordJoined) {
+                joinedResult.add(join(sourceRecord, null));
+            }
+        }
+
+        return joinedResult;
     }
 
-    private List<T> fullOuterJoin(List<T> source, JoinedSource<T, F> joinedSource) {
-        throw new IllegalArgumentException(joinedSource.getJoinType() + " join type is not supported");
+    private List<T> fullExclusiveJoin(List<T> source, JoinedSource<T, F> joinedSource) {
+        List<T> joinedResult = new ArrayList<>();
+        List<T> joinedSourceRecords = joinedSource.getSource();
+
+        boolean[] joinedSourceRecordUsed = new boolean[joinedSourceRecords.size()];
+
+        for (T sourceRecord : source) {
+            boolean recordJoined = false;
+
+            Object sourceValue = extractValue(sourceRecord, joinedSource.getSourceField());
+
+            for (int i = 0; i < joinedSourceRecords.size(); i++) {
+                T joinedSourceRecord = joinedSourceRecords.get(i);
+                Object joinedSourceValue = extractValue(joinedSourceRecord, joinedSource.getJoinedSourceField());
+
+                if (sourceValue != null && sourceValue.equals(joinedSourceValue)) {
+                    recordJoined = true;
+                    joinedSourceRecordUsed[i] = true;
+                }
+            }
+
+            if (!recordJoined) {
+                joinedResult.add(join(sourceRecord, null));
+            }
+        }
+
+        for (int i = 0; i < joinedSourceRecordUsed.length; i++) {
+            if (!joinedSourceRecordUsed[i]) {
+                joinedResult.add(join(joinedSourceRecords.get(i), null));
+            }
+        }
+
+        return joinedResult;
     }
 
     abstract protected int compareRecords(T r, T r2, F key, SortType sortType);
