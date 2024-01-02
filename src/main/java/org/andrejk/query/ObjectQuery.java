@@ -11,8 +11,6 @@ import java.util.function.Function;
 
 public interface ObjectQuery<T, F> {
 
-    ObjectQuery<T, F> select(F[] fields);
-
     ObjectQuery<T, F> select(Collection<F> fields);
 
     ObjectQuery<T, F> from(Collection<T> source);

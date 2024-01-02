@@ -1,4 +1,4 @@
-package org.andrejk.query.map;
+package org.andrejk.query;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

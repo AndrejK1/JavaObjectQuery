@@ -1,7 +1,6 @@
-package org.andrejk.query.map;
+package org.andrejk.query;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.andrejk.query.ObjectQuery;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -53,7 +52,7 @@ class MapQueryTest {
         int limitFrom = 0;
         int limitSize = 10;
 
-        List<Map<String, Object>> queryResult = new MapQuery<String>()
+        List<Map<String, Object>> queryResult = new MapQuery<String, Object>()
                 .from(CUSTOMERS_DATA)
                 .join(CITIES_DATA, "city", "id")
                 .select(select)

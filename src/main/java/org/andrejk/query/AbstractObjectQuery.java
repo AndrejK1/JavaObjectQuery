@@ -20,12 +20,6 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     protected List<GroupByAggregation<T, F>> groupByAggregations;
 
     @Override
-    public ObjectQuery<T, F> select(F[] fields) {
-        this.selectedFields = Arrays.asList(fields);
-        return this;
-    }
-
-    @Override
     public ObjectQuery<T, F> select(Collection<F> fields) {
         this.selectedFields = fields;
         return this;
