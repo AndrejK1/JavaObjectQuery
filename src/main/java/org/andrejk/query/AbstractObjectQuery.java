@@ -1,3 +1,11 @@
+/**
+ * AbstractObjectQuery.java
+ * SQL-like on Java objects operations skeleton
+ *
+ * @author Andrii Kononenko
+ * @since 02.01.2024
+ */
+
 package org.andrejk.query;
 
 import lombok.AllArgsConstructor;

@@ -1,3 +1,11 @@
+/**
+ * MapQuery.java
+ * SQL-like on Java maps operations implementation
+ *
+ * @author Andrii Kononenko
+ * @since 02.01.2024
+ */
+
 package org.andrejk.query;
 
 import java.util.Collection;

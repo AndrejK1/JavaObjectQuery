@@ -1,3 +1,11 @@
+/**
+ * ObjectQuery.java
+ * SQL-like on Java objects operations facade
+ *
+ * @author Andrii Kononenko
+ * @since 02.01.2024
+ */
+
 package org.andrejk.query;
 
 import lombok.AllArgsConstructor;
