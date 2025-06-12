@@ -23,8 +23,6 @@ class MapQueryTest {
 
     @Test
     void showCaseTest() {
-        List<String> select = List.of("customers.name", "ageAvg", "cityNames");
-
         ObjectQuery.WhereGroup<String> where = new ObjectQuery.WhereGroup<>(
                 List.of(new ObjectQuery.WhereGroup<>(
                         List.of(),
@@ -39,13 +37,9 @@ class MapQueryTest {
                 ObjectQuery.WhereGroup.GroupConditionType.AND
         );
 
-        List<ObjectQuery.Sort<String>> sortMap = List.of(new ObjectQuery.Sort<>("customers.age", ObjectQuery.SortType.DESC),
-                new ObjectQuery.Sort<>("customers.name", ObjectQuery.SortType.DESC));
-
-        List<String> groupByFields = List.of("customers.name", "customers.age");
         List<ObjectQuery.GroupByAggregation<Map<String, Object>, String>> groupBy = List.of(
                 new ObjectQuery.GroupByAggregation<>("ids", records -> records.stream().map(map -> map.get("customers.id")).map(String::valueOf).collect(Collectors.joining(",", "[", "]"))),
-                new ObjectQuery.GroupByAggregation<>("cityNames", records -> records.stream().map(map -> map.get("cities.cityName")).map(String::valueOf).collect(Collectors.joining(",", "[", "]"))),
+                new ObjectQuery.GroupByAggregation<>("cityNames", records -> records.stream().map(map -> map.get("cities.name")).map(String::valueOf).collect(Collectors.joining(",", "[", "]"))),
                 new ObjectQuery.GroupByAggregation<>("ageAvg", records -> records.stream().map(map -> map.getOrDefault("customers.age", 0).toString()).mapToInt(Integer::valueOf).average().orElse(0D))
         );
 
@@ -54,17 +48,57 @@ class MapQueryTest {
 
         List<Map<String, Object>> queryResult = new MapQuery<>(MapQuery.STRING_KEY_ALIASING_FUNCTION)
                 .distinct()
-                .select(select)
+                .select(List.of("customers.name", "ageAvg", "cityNames"))
                 .from(CUSTOMERS_DATA, "customers")
-                .join(CITIES_DATA, "cities", "customers.city", "cities.cityId")
+                .join(CITIES_DATA, "cities", "customers.cityId", "cities.id")
                 .where(where)
-                .groupBy(groupByFields, groupBy)
-                .sort(sortMap)
+                .groupBy(List.of("customers.name"), groupBy)
+                .sort(List.of(new ObjectQuery.Sort<>("ageAvg", ObjectQuery.SortType.DESC)))
                 .limit(limitFrom, limitSize)
                 .execute();
 
         Assertions.assertNotNull(queryResult);
-        // TODO ASSERTIONS
+        Assertions.assertEquals(2, queryResult.size());
+
+        Assertions.assertNotNull(queryResult.getFirst());
+        Assertions.assertEquals("Vova", queryResult.getFirst().get("customers.name"));
+        Assertions.assertEquals(24.0, queryResult.getFirst().get("ageAvg"));
+        Assertions.assertEquals("[New York]", queryResult.getFirst().get("cityNames"));
+
+        Assertions.assertNotNull(queryResult.get(1));
+        Assertions.assertEquals("Andrii", queryResult.get(1).get("customers.name"));
+        Assertions.assertEquals(22.5, queryResult.get(1).get("ageAvg"));
+        Assertions.assertEquals("[Florida,London]", queryResult.get(1).get("cityNames"));
+    }
+
+    @Test
+    void leftJoinTest() {
+        List<Map<String, Object>> queryResult = new MapQuery<>(MapQuery.STRING_KEY_ALIASING_FUNCTION)
+                .distinct()
+                .select(List.of("customers.name", "cities.name"))
+                .from(CUSTOMERS_MISSING_DATA, "customers")
+                .join(CITIES_DATA, "cities", "customers.cityId", "cities.id", ObjectQuery.JoinType.LEFT)
+                .sort(List.of(new ObjectQuery.Sort<>("customers.name", ObjectQuery.SortType.ASC)))
+                .execute();
+
+        Assertions.assertNotNull(queryResult);
+        Assertions.assertEquals(4, queryResult.size());
+
+        Assertions.assertNotNull(queryResult.getFirst());
+        Assertions.assertEquals("Andrii", queryResult.getFirst().get("customers.name"));
+        Assertions.assertEquals("New York", queryResult.getFirst().get("cities.name"));
+
+        Assertions.assertNotNull(queryResult.get(1));
+        Assertions.assertEquals("Dmytro", queryResult.get(1).get("customers.name"));
+        Assertions.assertNull(queryResult.get(1).get("cities.name"));
+
+        Assertions.assertNotNull(queryResult.get(2));
+        Assertions.assertEquals("Vova", queryResult.get(2).get("customers.name"));
+        Assertions.assertNull(queryResult.get(2).get("cities.name"));
+
+        Assertions.assertNotNull(queryResult.get(3));
+        Assertions.assertNull(queryResult.get(3).get("customers.name"));
+        Assertions.assertEquals("Florida", queryResult.get(3).get("cities.name"));
     }
 
 }

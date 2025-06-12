@@ -11,7 +11,8 @@ public class TestUtils {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public static List<Map<String, Object>> readJsonFileToListOfMaps(String resourceName) throws IOException {
-        return readJsonFile(resourceName, new TypeReference<>() {});
+        return readJsonFile(resourceName, new TypeReference<>() {
+        });
     }
 
     public static <T> T readJsonFile(String resourceName, TypeReference<T> typeReference) throws IOException {

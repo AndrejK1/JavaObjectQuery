@@ -1,18 +1,18 @@
 [
   {
-    "cityId": "1",
-    "cityName": "New York"
+    "id": "1",
+    "name": "New York"
   },
   {
-    "cityId": "2",
-    "cityName": "Florida"
+    "id": "2",
+    "name": "Florida"
   },
   {
-    "cityId": "3",
-    "cityName": "London"
+    "id": "3",
+    "name": "London"
   },
   {
-    "cityId": "4",
-    "cityName": "Miami"
+    "id": "4",
+    "name": "Miami"
   }
 ]
