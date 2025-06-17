@@ -31,6 +31,25 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     protected boolean distinct = false;
     protected List<GroupByAggregation<T, F>> groupByAggregations;
 
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    protected static class Source<T> {
+        private List<T> source;
+        private Object joinedSourceAlias;
+    }
+
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    protected static class JoinedSource<T, F> {
+        private List<T> joinedSource;
+        private Object joinedSourceAlias;
+        private F sourceField;
+        private F joinedSourceField;
+        private JoinType joinType;
+    }
+
     @Override
     public ObjectQuery<T, F> select(Collection<F> fields) {
         this.selectedFields = fields;
@@ -175,77 +194,64 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     protected Boolean testCondition(T record, WhereGroup.WhereCondition<F> condition) {
         Object sourceValue = extractValue(record, condition.getField());
 
-        switch (condition.getCondition()) {
-            case EQUALS:
-                return sourceValue != null && sourceValue.equals(condition.getValue());
-            case NOT_EQUALS:
-                return sourceValue != null && !sourceValue.equals(condition.getValue());
-            case CONTAINS:
+        return switch (condition.getCondition()) {
+            case EQUALS -> sourceValue != null && sourceValue.equals(condition.getValue());
+            case NOT_EQUALS -> sourceValue != null && !sourceValue.equals(condition.getValue());
+            case CONTAINS -> {
+                if (sourceValue == null) {
+                    yield false;
+                }
+
                 if (!(sourceValue instanceof String)) {
-                    throw new IllegalArgumentException("Can't apply CONTAINS condition to " + sourceValue.getClass() + " type");
+                    throw new IllegalArgumentException("Can't apply CONTAINS condition to %s type".formatted(sourceValue.getClass()));
                 }
 
                 if (!(condition.getValue() instanceof String)) {
                     throw new IllegalArgumentException("CONTAINS condition value must be String type");
                 }
 
-                return sourceValue.toString().contains(condition.getValue().toString());
-            case LOWER:
-                return sourceValue != null && compareNumbers(condition, sourceValue) < 0;
-            case LOWER_EQUALS:
-                return sourceValue != null && compareNumbers(condition, sourceValue) <= 0;
-            case BIGGER:
-                return sourceValue != null && compareNumbers(condition, sourceValue) > 0;
-            case BIGGER_EQUALS:
-                return sourceValue != null && compareNumbers(condition, sourceValue) >= 0;
-            case IN:
+                yield sourceValue.toString().contains(condition.getValue().toString());
+            }
+            case LOWER -> sourceValue != null && compareNumbers(condition, sourceValue) < 0;
+            case LOWER_EQUALS -> sourceValue != null && compareNumbers(condition, sourceValue) <= 0;
+            case BIGGER -> sourceValue != null && compareNumbers(condition, sourceValue) > 0;
+            case BIGGER_EQUALS -> sourceValue != null && compareNumbers(condition, sourceValue) >= 0;
+            case IN -> {
                 if (!(condition.getValue() instanceof Collection)) {
                     throw new IllegalArgumentException("CONTAINS condition value must be Collection type");
                 }
 
-                return ((Collection<?>) condition.getValue()).contains(sourceValue);
-            case IS_NULL:
-                return sourceValue == null;
-            case IS_NOT_NULL:
-                return sourceValue != null;
-        }
+                yield ((Collection<?>) condition.getValue()).contains(sourceValue);
+            }
+            case IS_NULL -> sourceValue == null;
+            case IS_NOT_NULL -> sourceValue != null;
+        };
 
-        throw new IllegalArgumentException("Can't process " + condition.getCondition() + " type");
     }
 
     private int compareNumbers(WhereGroup.WhereCondition<F> condition, Object sourceValue) {
         if (!(sourceValue instanceof Number)) {
-            throw new IllegalArgumentException("Can't apply " + condition.getCondition() + " condition to " + sourceValue.getClass() + " type");
+            throw new IllegalArgumentException("Can't apply %s condition to %s type".formatted(condition.getCondition(), sourceValue.getClass()));
         }
 
         if (!(condition.getValue() instanceof Number)) {
-            throw new IllegalArgumentException(condition.getCondition() + " condition value must be Number type");
+            throw new IllegalArgumentException("%s condition value must be Number type".formatted(condition.getCondition()));
         }
 
         return Double.compare(((Number) sourceValue).doubleValue(), ((Number) condition.getValue()).doubleValue());
     }
 
     protected List<T> joinSource(List<T> baseSource, F baseSourceField, List<T> joinedSource, F joinedSourceField, JoinType joinType) {
-        switch (joinType) {
-            case INNER:
-                return innerJoin(baseSource, baseSourceField, joinedSource, joinedSourceField);
-            case CROSS:
-                return crossJoin(baseSource, joinedSource);
-            case LEFT:
-                return leftJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, true);
-            case RIGHT:
-                return leftJoin(joinedSource, joinedSourceField, baseSource, baseSourceField, true);
-            case FULL:
-                return fullJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, true);
-            case LEFT_EXCLUSIVE:
-                return leftJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, false);
-            case RIGHT_EXCLUSIVE:
-                return leftJoin(joinedSource, joinedSourceField, baseSource, baseSourceField, false);
-            case FULL_EXCLUSIVE:
-                return fullJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, false);
-            default:
-                throw new IllegalArgumentException(joinType + " join type is not supported");
-        }
+        return switch (joinType) {
+            case INNER -> innerJoin(baseSource, baseSourceField, joinedSource, joinedSourceField);
+            case CROSS -> crossJoin(baseSource, joinedSource);
+            case LEFT -> leftJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, true);
+            case RIGHT -> leftJoin(joinedSource, joinedSourceField, baseSource, baseSourceField, true);
+            case FULL -> fullJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, true);
+            case LEFT_EXCLUSIVE -> leftJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, false);
+            case RIGHT_EXCLUSIVE -> leftJoin(joinedSource, joinedSourceField, baseSource, baseSourceField, false);
+            case FULL_EXCLUSIVE -> fullJoin(baseSource, baseSourceField, joinedSource, joinedSourceField, false);
+        };
     }
 
     protected List<T> innerJoin(List<T> baseSource, F baseSourceField, List<T> joinedSource, F joinedSourceField) {
@@ -357,23 +363,4 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
     abstract protected T join(T sourceRecord, T joinedSourceRecord);
 
     abstract protected Object extractValue(T source, F field);
-
-    @Getter
-    @Builder
-    @AllArgsConstructor
-    protected static class Source<T> {
-        private List<T> source;
-        private Object joinedSourceAlias;
-    }
-
-    @Getter
-    @Builder
-    @AllArgsConstructor
-    protected static class JoinedSource<T, F> {
-        private List<T> joinedSource;
-        private Object joinedSourceAlias;
-        private F sourceField;
-        private F joinedSourceField;
-        private JoinType joinType;
-    }
 }

@@ -1,44 +1,9 @@
 [
-  {
-    "id": "1",
-    "name": "Andrii",
-    "age": 24,
-    "cityId": "2"
-  },
-  {
-    "id": "2",
-    "name": "Andrii",
-    "age": 21,
-    "cityId": "3"
-  },
-  {
-    "id": "3",
-    "name": "Dmytro",
-    "age": 23,
-    "cityId": "1"
-  },
-  {
-    "id": "4",
-    "name": "Vova",
-    "age": 24,
-    "cityId": "1"
-  },
-  {
-    "id": "5",
-    "name": "Anton",
-    "age": 22,
-    "cityId": "3"
-  },
-  {
-    "id": "6",
-    "name": "Vitaliy",
-    "age": 30,
-    "cityId": "3"
-  },
-  {
-    "id": "7",
-    "name": "Illya",
-    "age": 20,
-    "cityId": "4"
-  }
+  {"id": "1", "name": "Andrii", "age": 24, "cityId": "1"},
+  {"id": "2", "name": "Anna", "age": 30, "cityId": "2"},
+  {"id": "3", "name": "Dmytro", "age": 23, "cityId": "3"},
+  {"id": "4", "name": "Vova", "age": 28, "cityId": "4"},
+  {"id": "5", "name": "Marta", "age": 29, "cityId": "5"},
+  {"id": "6", "name": "Oleg", "age": null, "cityId": "6"},
+  {"id": "7", "name": null, "age": 31, "cityId": "1"}
 ]

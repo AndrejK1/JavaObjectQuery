@@ -55,11 +55,11 @@ public class MapQuery<K, V> extends AbstractObjectQuery<Map<K, V>, K> {
         }
 
         if (!Comparable.class.isAssignableFrom(v.getClass())) {
-            throw new IllegalArgumentException("Values of class " + v.getClass() + " are not comparable!");
+            throw new IllegalArgumentException("Values of class %s are not comparable!".formatted(v.getClass()));
         }
 
         if (!Comparable.class.isAssignableFrom(v2.getClass())) {
-            throw new IllegalArgumentException("Values of class " + v2.getClass() + " are not comparable!");
+            throw new IllegalArgumentException("Values of class %s are not comparable!".formatted(v2.getClass()));
         }
 
         return sortType == SortType.ASC ? ((Comparable) v).compareTo(v2) : ((Comparable) v2).compareTo(v);
