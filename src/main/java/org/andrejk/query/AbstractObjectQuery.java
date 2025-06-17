@@ -229,18 +229,6 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
 
     }
 
-    private int compareNumbers(WhereGroup.WhereCondition<F> condition, Object sourceValue) {
-        if (!(sourceValue instanceof Number)) {
-            throw new IllegalArgumentException("Can't apply %s condition to %s type".formatted(condition.getCondition(), sourceValue.getClass()));
-        }
-
-        if (!(condition.getValue() instanceof Number)) {
-            throw new IllegalArgumentException("%s condition value must be Number type".formatted(condition.getCondition()));
-        }
-
-        return Double.compare(((Number) sourceValue).doubleValue(), ((Number) condition.getValue()).doubleValue());
-    }
-
     protected List<T> joinSource(List<T> baseSource, F baseSourceField, List<T> joinedSource, F joinedSourceField, JoinType joinType) {
         return switch (joinType) {
             case INNER -> innerJoin(baseSource, baseSourceField, joinedSource, joinedSourceField);
@@ -311,6 +299,33 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
         return joinedResult;
     }
 
+    protected abstract List<T> aliasSource(List<T> source, Object joinedSourceAlias);
+
+    protected abstract int compareRecords(T r, T r2, F key, SortType sortType);
+
+    protected abstract List<T> selectFields(List<T> source, Collection<F> selectedFields);
+
+    protected abstract T constructGroupedRecord(List<F> groupByFields,
+                                                List<Object> groupByFieldValues,
+                                                List<T> groupedRecords,
+                                                List<GroupByAggregation<T, F>> groupByAggregations);
+
+    protected abstract T join(T sourceRecord, T joinedSourceRecord);
+
+    protected abstract Object extractValue(T source, F field);
+
+    private int compareNumbers(WhereGroup.WhereCondition<F> condition, Object sourceValue) {
+        if (!(sourceValue instanceof Number)) {
+            throw new IllegalArgumentException("Can't apply %s condition to %s type".formatted(condition.getCondition(), sourceValue.getClass()));
+        }
+
+        if (!(condition.getValue() instanceof Number)) {
+            throw new IllegalArgumentException("%s condition value must be Number type".formatted(condition.getCondition()));
+        }
+
+        return Double.compare(((Number) sourceValue).doubleValue(), ((Number) condition.getValue()).doubleValue());
+    }
+
     private List<T> fullJoin(List<T> baseSource, F baseSourceField, List<T> joinedSource, F joinedSourceField, boolean includeMatching) {
         List<T> joinedResult = new ArrayList<>();
 
@@ -348,19 +363,4 @@ public abstract class AbstractObjectQuery<T, F> implements ObjectQuery<T, F> {
 
         return joinedResult;
     }
-
-    protected abstract List<T> aliasSource(List<T> source, Object joinedSourceAlias);
-
-    abstract protected int compareRecords(T r, T r2, F key, SortType sortType);
-
-    abstract protected List<T> selectFields(List<T> source, Collection<F> selectedFields);
-
-    abstract protected T constructGroupedRecord(List<F> groupByFields,
-                                                List<Object> groupByFieldValues,
-                                                List<T> groupedRecords,
-                                                List<GroupByAggregation<T, F>> groupByAggregations);
-
-    abstract protected T join(T sourceRecord, T joinedSourceRecord);
-
-    abstract protected Object extractValue(T source, F field);
 }
